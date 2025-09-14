@@ -10,6 +10,7 @@ volumes:
 services:
 
   backend:
+    container_name: helpdesk-api-prd-latest
     build:
       context: ./backend
       dockerfile: ./Dockerfile
@@ -35,6 +36,8 @@ services:
       dockerfile: ./Dockerfile
     env_file:
       - .env-frontend-local
+    environment:
+      - BACKEND_SERVICE=helpdesk-api-prd-latest
     volumes:
       - backend_public:/var/www/backend-public
     restart: always
@@ -52,8 +55,8 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-ticketz}
       - POSTGRES_HOST_AUTH_METHOD=trust
       - TZ=${TZ:-America/Sao_Paulo}
-    expose:
-      - 5432
+    ports:
+      - 5432:5432
     restart: always
     networks:
       - ticketz
@@ -69,18 +72,5 @@ services:
     networks:
       - ticketz
 
-  sidekick:
-    image: ghcr.io/ticketz-oss/ticketz-sidekick:latest
-    profiles: ["do-not-start"]
-    env_file:
-      - .env-backend-local
-    restart: unless-stopped
-    volumes:
-      - backend_public:/backend-public
-      - backend_private:/backend-private
-      - ./backups:/backups
-      - ./retrieve:/retrieve
-    depends_on:
-      - postgres
-    networks:
-      - ticketz
+  
+  

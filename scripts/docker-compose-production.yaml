@@ -1,0 +1,76 @@
+networks:
+  nebula-net:
+    external: true
+
+volumes:
+  helpdesk_backend_public:
+  helpdesk_backend_private:
+  helpdesk_backups:
+  helpdesk_retrieve:
+
+services:
+  helpdesk-latest:
+    image: nebulasistemas/helpdesk-frontend:prd-latest
+    container_name: helpdesk-latest
+    hostname: helpdesk-latest
+    restart: always
+    ports:
+      - 127.0.0.1:48080:80
+    env_file:
+      - ./env/.env-frontend
+    environment:
+      BACKEND_HOST: api-helpdesk.sistemasnebula.com.br
+    volumes:
+      - helpdesk_backend_public:/var/www/backend-public
+    networks:
+      - nebula-net
+
+  helpdesk-api-prd-latest:
+    image: nebulasistemas/helpdesk-backend:prd-latest
+    container_name: helpdesk-api-prd-latest
+    hostname: helpdesk-api-prd-latest
+    restart: always
+    ports:
+      - 127.0.0.1:48081:3000
+    env_file:
+      - ./env/.env-backend
+    environment:
+      BACKEND_URL: https://api-helpdesk.sistemasnebula.com.br
+      FRONTEND_URL: https://helpdesk.sistemasnebula.com.br
+      TZ: America/Sao_Paulo
+      USER_LIMIT: 10000
+      CONNECTIONS_LIMIT: 100000
+      CLOSED_SEND_BY_ME: "true"
+      VERIFY_TOKEN: ticketz
+      SOCKET_ADMIN: "true"
+    volumes:
+      - helpdesk_backend_public:/usr/src/app/public
+      - helpdesk_backend_private:/usr/src/app/private
+    networks:
+      - nebula-net
+    depends_on:
+      - helpdesk-latest
+
+  # Serviço de Backup e Restauração
+  helpdesk-sidekick:
+    image: ghcr.io/ticketz-oss/ticketz-sidekick:latest
+    container_name: helpdesk-sidekick
+    hostname: helpdesk-sidekick
+    profiles: ["backup"]  # Inicia apenas quando solicitado
+    restart: unless-stopped
+    env_file:
+      - ./env/.env-backend
+    environment:
+      BACKUP_ENCRYPTION_KEY: "sua-chave-secreta-aqui"
+      BACKUP_RETENTION_DAYS: "30"
+      BACKUP_COMPRESSION: "gzip"
+    volumes:
+      - helpdesk_backend_public:/backend-public
+      - helpdesk_backend_private:/backend-private
+      - helpdesk_backups:/backups
+      - helpdesk_retrieve:/retrieve
+      - ./backups:/backups-local  # Backup local no host
+    networks:
+      - nebula-net
+    depends_on:
+      - helpdesk-api-prd-latest
